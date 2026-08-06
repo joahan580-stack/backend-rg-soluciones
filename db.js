@@ -1,12 +1,13 @@
 const { Pool } = require('pg');
 require('dotenv').config();
 
-// El código ahora toma la URL completa de conexión configurada en el entorno
+// Aquí el código toma automáticamente los datos que pusiste en tu archivo .env
 const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: {
-    rejectUnauthorized: false // Requerido para conexiones seguras a bases de datos en la nube como Neon
-  }
+  user: process.env.DB_USER,
+  host: process.env.DB_HOST,
+  database: process.env.DB_NAME,
+  password: process.env.DB_PASSWORD,
+  port: process.env.DB_PORT,
 });
 
 // Esto es para probar si la conexión funciona

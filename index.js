@@ -7,6 +7,7 @@ const multer = require('multer');
 const app = express();
 const fs = require('fs');
  const path = require('path');
+ const nodemailer = require('nodemailer');
  const router = express.Router();
  module.exports = router;
 const storage = multer.diskStorage({
@@ -17,6 +18,13 @@ const storage = multer.diskStorage({
         const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
         cb(null, uniqueSuffix + path.extname(file.originalname));
     }
+});
+const transporter = nodemailer.createTransport({
+  service: 'gmail',
+  auth: {
+    user: 'soporte@rgsoluciones.com.mx',         
+    pass: 'hkkl xoyd jajp uxfu'   
+  }
 });
 const upload = multer({ storage: storage });
 app.use(cors());
@@ -1037,7 +1045,6 @@ app.post('/api/tickets-servicio', async (req, res) => {
     } = req.body;
     
     let idClienteFinal = idcliente;
-    // Se asegura de capturar correctamente el nombre enviado desde el cliente Angular
     const nombreFinal = nombre || nombreUsuario || 'Cliente General';
     const correoFinal = correo || correoUsuario || 'Sin correo';
 
@@ -1066,7 +1073,7 @@ app.post('/api/tickets-servicio', async (req, res) => {
     `;
     
     const values = [
-      descripcion || null, 
+      descripcion || 'Sin descripción proporcionada', // Asegura que nunca vaya null para cumplir con la BD
       fechasolicitud || new Date(), 
       estado || 'En proceso', 
       idClienteFinal, 
@@ -1084,13 +1091,65 @@ app.post('/api/tickets-servicio', async (req, res) => {
     ];
     
     const nuevoTicket = await pool.query(query, values);
+
+    // ==========================================
+    // ENVÍO DE CORREOS ELECTRÓNICOS AUTOMÁTICOS
+    // ==========================================
+    if (correoFinal && correoFinal !== 'Sin correo') {
+      try {
+        const transporter = nodemailer.createTransport({
+          service: 'gmail',
+          auth: {
+            user: 'soporte@rgsoluciones.com.mx',         
+    pass: 'hkkl xoyd jajp uxfu'  // Tu contraseña de aplicación de 16 caracteres
+          }
+        });
+
+        const mailOptionsSoporte = {
+          from: 'soporte@rgsoluciones.com.mx',
+          to: 'soporte@rgsoluciones.com.mx',
+          subject: `🛠️ Nuevo Ticket de Servicio - ${equipo || 'Equipo'} (${nombreFinal})`,
+          html: `
+            <h3>Se ha registrado un nuevo ticket de servicio técnico</h3>
+            <p><strong>Cliente:</strong> ${nombreFinal}</p>
+            <p><strong>Correo:</strong> ${correoFinal}</p>
+            <p><strong>Teléfono:</strong> ${telefono || 'N/A'}</p>
+            <p><strong>Equipo:</strong> ${equipo || 'N/A'} (Serie: ${serie || 'N/A'})</p>
+            <p><strong>Descripción del problema:</strong> ${descripcion || 'N/A'}</p>
+            <p><strong>Diagnóstico / Reporte Técnico:</strong> ${reportetecnico || 'Pendiente'}</p>
+            <p><strong>Costo Estimado:</strong> $${costo || '0.00'}</p>
+          `
+        };
+
+        const mailOptionsCliente = {
+          from: 'soporte@rgsoluciones.com.mx',
+          to: correoFinal,
+          subject: '✅ Solicitud de Soporte Registrada - RG Soluciones Cibernéticas',
+          html: `
+            <h3>¡Hola, ${nombreFinal}!</h3>
+            <p>Hemos recibido tu solicitud de servicio técnico en <strong>RG Soluciones Cibernéticas</strong>.</p>
+            <p><strong>Equipo registrado:</strong> ${equipo || 'N/A'}</p>
+            <p><strong>Estado actual:</strong> En proceso</p>
+            <p>Nos pondremos en contacto contigo a la brevedad o puedes presentarte en nuestras instalaciones ubicadas en C. 5 304, Centro, Córdoba, Ver.</p>
+            <br>
+            <p><i>Agradecemos tu preferencia. Tel: (271) 126-8340</i></p>
+          `
+        };
+
+        await transporter.sendMail(mailOptionsSoporte);
+        await transporter.sendMail(mailOptionsCliente);
+      } catch (mailError) {
+        console.error('Error al enviar los correos electrónicos:', mailError);
+      }
+    }
+
     res.status(201).json(nuevoTicket.rows[0]);
+
   } catch (err) {
     console.error('Error al insertar ticket de servicio:', err);
     res.status(500).json({ error: 'Error interno al registrar el ticket' });
   }
 });
-
 // ==========================================
 // 4. CREAR TICKET (POST - Router)
 // ==========================================
@@ -1214,6 +1273,7 @@ app.put('/api/tickets-servicio/:id', async (req, res) => {
     res.status(500).json({ error: 'Error interno del servidor' });
   }
 });
+
 const { OAuth2Client } = require('google-auth-library');
 const client = new OAuth2Client('TU_CLIENT_ID.apps.googleusercontent.com');
 
